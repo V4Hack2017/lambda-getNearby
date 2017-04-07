@@ -1,5 +1,5 @@
 # coding=utf8
-import boto3, os, math
+import boto3, os, math, json
 from datetime import datetime 
 
 
@@ -96,8 +96,8 @@ def lambda_handler(event, context):
     
     connections = {}
     timestamp = 1491579900
-    clientLat = 49.197881666666675
-    clientLng = 16.605206666666668
+    clientLat = float(event["queryStringParameters"]["lat"])
+    clientLng = float(event["queryStringParameters"]["lng"])
     
     nearestStationName, nearestStationLines = calculateNearestStation(clientLat, clientLng)
     for lineId in nearestStationLines:
@@ -118,6 +118,8 @@ def lambda_handler(event, context):
             }
         }
     return {
-        "station": nearestStationName,
-        "lines": connections
+        "body":  json.dumps({
+            "station": nearestStationName,
+            "lines": connections
+        }, ensure_ascii=False)
     }
