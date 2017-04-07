@@ -1,6 +1,20 @@
 # coding=utf8
-import boto3, os
-from datetime import datetime
+import boto3, os, math
+from datetime import datetime 
+
+
+
+def distance(lat1, lon1, lat2, lon2):
+    radius = 6371 # km
+
+    dlat = math.radians(lat2-lat1)
+    dlon = math.radians(lon2-lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = radius * c
+
+    return d
 
 
 def getBotoSession(awsAccessKeyId, awsSecretAccessKey):
@@ -14,6 +28,7 @@ def getBotoSession(awsAccessKeyId, awsSecretAccessKey):
 def lambda_handler(event, context):
     boto = getBotoSession(os.environ["awsAccessKeyId"], os.environ["awsSecretAccessKey"])
     dynamodb = boto.resource("dynamodb")
+    dynamodbClient = boto.client("dynamodb")
     linesTable = dynamodb.Table("hackathon-lines")
 
     def getLineData(lineId):
@@ -26,10 +41,27 @@ def lambda_handler(event, context):
         return response
 
     def calculateNearestStation(latitude, longitude):
-        return "Vlhká", ["8"]
+        stations = dynamodbClient.scan(
+            TableName='hackathon-stations',
+            AttributesToGet=[
+                'name', 'latitude', 'lines', 'longitude'
+            ]
+        )["Items"]
+        bestStation = ''
+        bestLines = []
+        bestDistance = False
+        for station in stations:
+            stationLatitude = float(station["latitude"]["S"])
+            stationLongitude = float(station["longitude"]["S"])
+            dist = distance(stationLatitude, stationLongitude, latitude, longitude)
+            if(bestDistance == False or bestDistance > dist): 
+                bestDistance = dist
+                bestStation = station["name"]["S"]
+                bestLines = station["lines"]["SS"]
+        return bestStation, bestLines
 
 
-    def getSoonestConnections(lineData, timestamp, limit=1):
+    def getSoonestConnections(lineData, timestamp, limit=2):
         clientDateTime = datetime.fromtimestamp(timestamp)
         clientTimeVal = int(clientDateTime.strftime("%H")) * 60 + int(clientDateTime.strftime("%M"))
         
@@ -63,9 +95,11 @@ def lambda_handler(event, context):
         return lineInResult, lineOutResult
     
     connections = {}
-    timestamp = 1491578160
+    timestamp = 1491579900
+    clientLat = 49.197881666666675
+    clientLng = 16.605206666666668
     
-    nearestStationName, nearestStationLines = calculateNearestStation("", "")
+    nearestStationName, nearestStationLines = calculateNearestStation(clientLat, clientLng)
     for lineId in nearestStationLines:
         lineData = getLineData(lineId)
         soonestConnectionsIn, soonestConnectionsOut = getSoonestConnections(lineData, timestamp)
