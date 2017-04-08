@@ -95,7 +95,7 @@ def lambda_handler(event, context):
         return lineInResult, lineOutResult
     
     connections = {}
-    timestamp = 1491579900
+    timestamp = int(event["queryStringParameters"]["timestamp"])
     clientLat = float(event["queryStringParameters"]["lat"])
     clientLng = float(event["queryStringParameters"]["lng"])
     
